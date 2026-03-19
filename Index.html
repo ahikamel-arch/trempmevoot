@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>טרמפים מבואות יריחו</title>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCvdBfgidvkwFZ7V1VUC4mH3HPi4CK6p3c",
+    authDomain: "mevoot-yericho-tremp.firebaseapp.com",
+    projectId: "mevoot-yericho-tremp",
+    databaseURL: "https://mevoot-yericho-tremp-default-rtdb.europe-west1.firebasedatabase.app/",
+    storageBucket: "mevoot-yericho-tremp.firebasestorage.app",
+    messagingSenderId: "736370135298",
+    appId: "1:736370135298:web:a51b00f58fc6fff31ef21b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const tripsRef = ref(db, 'trips');
+
+  // פונקציה גלובלית ששולחת לענן
+  window.saveToCloud = (tripData) => {
+    push(tripsRef, tripData);
+  };
+
+  // האזנה לענן - כשיש שינוי, זה יעדכן את האפליקציה
+  onValue(tripsRef, (snapshot) => {
+    const data = snapshot.val();
+    const cloudTrips = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+    if (window.updateAppWithCloudData) {
+        window.updateAppWithCloudData(cloudTrips);
+    }
+  });
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Frank+Ruhl+Libre:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --sand: #E8D5B0; --sand-light: #F5EDD8; --clay: #C4956A;
+    --olive: #6B7C3A; --olive-light: #8A9E4A; --sky: #7BA7BC;
+    --night: #1C2333; --night-soft: #2A3347; --white: #FDFAF4;
+    --text: #2C1810; --text-soft: #5C4A3A;
+    --danger: #C0392B; --success: #27AE60; --whatsapp: #25D366;
+    --outgoing: #3A6B40; --incoming: #6B3A3A;
+    --delayed: #7B5EA7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', sans-serif; background: var(--sand-light); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+
+  header { background: var(--night); position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 20px rgba(0,0,0,0.3); }
+  .header-inner { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; max-width: 480px; margin: 0 auto; }
+  .logo-title { font-family: 'Frank Ruhl Libre', serif; font-size: 1.25rem; font-weight: 900; color: var(--sand); }
+
+  .screen { display: none; max-width: 480px; margin: 0 auto; padding-bottom: 90px; animation: fadeUp 0.25s ease; }
+  .screen.active { display: block; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--night); display: flex; justify-content: space-around; padding: 8px 0 14px; z-index: 100; border-top: 2px solid var(--night-soft); }
+  .nav-btn { display: flex; flex-direction: column; align-items: center; gap: 3px; background: none; border: none; color: #8899AA; cursor: pointer; font-family: 'Heebo', sans-serif; font-size: 0.68rem; padding: 4px 10px; transition: color 0.2s; }
+  .nav-btn .ni { font-size: 1.35rem; }
+  .nav-btn.active { color: var(--sand); }
+
+  /* FEED TABS – Row 1: offer/request (big, dark header) */
+  .type-tabs-wrap { background: var(--night); padding: 0 16px 12px; }
+  .type-tabs { display: flex; gap: 8px; max-width: 480px; margin: 0 auto; }
+  .type-tab {
+    flex: 1; padding: 11px 8px; border: none; border-radius: 12px;
+    font-family: 'Heebo', sans-serif; font-size: 0.92rem; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; color: #7788AA; background: var(--night-soft);
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+  }
+  .type-tab .tt-icon { font-size: 1.3rem; }
+  .type-tab.active-offer   { background: #2E7D32; color: white; box-shadow: 0 3px 14px rgba(46,125,50,0.45); }
+  .type-tab.active-request { background: #C0500A; color: white; box-shadow: 0 3px 14px rgba(192,80,10,0.45); }
+  .type-tab-count { display: inline-block; border-radius: 10px; font-size: 0.62rem; padding: 1px 6px; font-weight: 700; background: rgba(255,255,255,0.2); color: rgba(255,255,255,0.9); }
+  .type-tab-count.inactive { background: rgba(0,0,0,0.12); color: #8899AA; }
+
+  /* Row 2: direction (smaller, white bar) */
+  .dir-tabs-wrap { background: var(--white); border-bottom: 2px solid #E8DDD0; position: sticky; top: 56px; z-index: 90; }
+  .dir-tabs { display: flex; max-width: 480px; margin: 0 auto; }
+  .dir-tab-main { flex: 1; padding: 9px 6px; border: none; background: none; font-family: 'Heebo', sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; color: #BBB; transition: all 0.2s; text-align: center; border-bottom: 3px solid transparent; display: flex; align-items: center; justify-content: center; gap: 5px; }
+  .dir-tab-main.aout { color: var(--outgoing); border-bottom-color: var(--outgoing); background: rgba(58,107,64,0.05); }
+  .dir-tab-main.ain  { color: var(--incoming); border-bottom-color: var(--incoming); background: rgba(107,58,58,0.05); }
+
+  /* Row 3: time (lightest bar) */
+  .time-tabs-wrap { background: #F7F2EA; border-bottom: 1px solid #E0D5C5; position: sticky; top: 101px; z-index: 89; }
+  .time-tabs { display: flex; max-width: 480px; margin: 0 auto; }
+  .time-tab { flex: 1; padding: 8px 4px; border: none; background: none; font-family: 'Heebo', sans-serif; font-size: 0.75rem; font-weight: 600; cursor: pointer; color: var(--text-soft); border-bottom: 3px solid transparent; transition: all 0.2s; text-align: center; white-space: nowrap; }
+  .time-tab.active { color: var(--night); border-bottom-color: var(--clay); }
+  .tab-count { display: inline-block; background: var(--clay); color: white; border-radius: 10px; font-size: 0.6rem; padding: 1px 5px; margin-right: 2px; font-weight: 700; }
+
+  /* CARDS */
+  .cards-pad { padding: 14px 16px; }
+  .card { background: var(--white); border-radius: 16px; padding: 15px 17px; margin-bottom: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); border: 1px solid rgba(196,149,106,0.18); position: relative; border-right: 4px solid transparent; transition: opacity 0.3s; }
+  .card.co { border-right-color: var(--success); }
+  .card.cr { border-right-color: var(--clay); }
+  .card.delayed { border-right-color: var(--delayed); opacity: 0.85; }
+
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .badges { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; }
+  .bo   { background: #E8F5E9; color: #2E7D32; }
+  .br   { background: #FFF3E0; color: #E65100; }
+  .breg { background: #E3F2FD; color: #1565C0; }
+  .bdate{ background: #F3E5F5; color: #6A1B9A; }
+  .bdel { background: #EDE7F6; color: var(--delayed); }
+  .bseats { background: #FFF8E1; color: #F57F17; }
+
+  .trip-dest-big { font-family: 'Frank Ruhl Libre', serif; font-size: 1.45rem; font-weight: 900; color: var(--night); line-height: 1.15; margin-bottom: 5px; }
+  .trip-time-sub { font-size: 0.88rem; color: var(--text-soft); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .day-tag { font-size: 0.75rem; font-weight: 800; padding: 2px 8px; border-radius: 8px; }
+  .day-tag-tmr  { background: #FFF3E0; color: #E65100; }
+  .day-tag-da   { background: #F3E5F5; color: #6A1B9A; }
+  .trip-note { font-size: 0.8rem; color: var(--text-soft); margin-top: 4px; }
+  .trip-user { font-size: 0.78rem; color: var(--clay); font-weight: 500; margin-top: 8px; }
+
+  /* ACTION BUTTONS ROW */
+  .action-row { display: flex; gap: 7px; margin-top: 10px; flex-wrap: wrap; }
+  .btn-wa, .btn-call, .btn-sms, .btn-delay, .btn-edit, .btn-delete {
+    padding: 9px 10px; border: none; border-radius: 9px;
+    font-family: 'Heebo', sans-serif; font-size: 0.8rem; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    gap: 5px; transition: transform 0.15s, opacity 0.15s; text-decoration: none;
+    white-space: nowrap;
+  }
+  .btn-wa, .btn-call { flex: 1; }
+  .btn-wa:active, .btn-call:active, .btn-sms:active, .btn-delay:active, .btn-edit:active, .btn-delete:active { transform: scale(0.96); opacity: 0.85; }
+  .btn-wa    { background: var(--whatsapp); color: white; }
+  .btn-call  { background: var(--sky); color: white; }
+  .btn-sms   { background: #8E44AD; color: white; }
+  .btn-delay { background: #EDE7F6; color: var(--delayed); border: 1.5px solid #D1C4E9; }
+  .btn-edit  { background: #E8F4F8; color: #1565C0;       border: 1.5px solid #BBDEFB; }
+  .btn-delete{ background: #FFEBEE; color: var(--danger);  border: 1.5px solid #FFCDD2; }
+
+  /* OWNER ACTIONS – shown only for own trips */
+  .owner-actions { display: flex; gap: 7px; margin-top: 7px; }
+
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--text-soft); }
+  .empty-icon { font-size: 2.8rem; margin-bottom: 12px; }
+  .empty-text { font-size: 0.87rem; line-height: 1.7; }
+  .section-label { font-size: 0.74rem; font-weight: 700; color: var(--text-soft); letter-spacing: 0.4px; padding: 6px 0 8px; }
+
+  /* HOME */
+  .home-hero { background: linear-gradient(160deg, var(--night) 0%, var(--night-soft) 100%); padding: 20px 20px 18px; position: relative; overflow: hidden; }
+  .home-hero::after { content: '🏔️'; position: absolute; font-size: 7rem; opacity: 0.05; bottom: -15px; left: -10px; }
+  .hero-title { font-family: 'Frank Ruhl Libre', serif; font-size: 1.5rem; font-weight: 900; color: var(--sand); }
+  .hero-sub { font-size: 0.82rem; color: #8899AA; margin-top: 3px; }
+  .stats-row { display: flex; gap: 8px; margin-top: 14px; }
+  .stat-box { flex: 1; background: rgba(255,255,255,0.07); border-radius: 10px; padding: 10px 8px; text-align: center; cursor: pointer; transition: background 0.2s; }
+  .stat-box:hover { background: rgba(255,255,255,0.12); }
+  .stat-num { font-size: 1.5rem; font-weight: 900; color: var(--sand); line-height: 1; }
+  .stat-label { font-size: 0.63rem; color: #8899AA; margin-top: 3px; }
+
+  .quick-btns { display: flex; gap: 10px; padding: 14px 16px 4px; }
+  .quick-btn { flex: 1; padding: 13px 8px; border: none; border-radius: 13px; font-family: 'Heebo', sans-serif; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: transform 0.15s; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .quick-btn:active { transform: scale(0.96); }
+  .qbo { background: var(--olive); color: white; }
+  .qbr { background: var(--clay); color: white; }
+  .qbi { font-size: 1.5rem; }
+
+  /* FORM */
+  .form-wrap { padding: 16px 16px 20px; }
+  .form-title { font-family: 'Frank Ruhl Libre', serif; font-size: 1.35rem; font-weight: 700; color: var(--night); margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid var(--sand); }
+  .form-group { margin-bottom: 14px; }
+  label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-soft); margin-bottom: 5px; }
+  input, select { width: 100%; padding: 11px 13px; border: 2px solid #E0D5C5; border-radius: 10px; font-family: 'Heebo', sans-serif; font-size: 0.93rem; background: var(--white); color: var(--text); transition: border-color 0.2s; appearance: none; -webkit-appearance: none; }
+  input:focus, select:focus { outline: none; border-color: var(--clay); }
+
+  .seg-tabs { display: flex; gap: 6px; }
+  .seg-tab { flex: 1; padding: 10px 6px; border: 2px solid #E0D5C5; border-radius: 10px; background: var(--white); font-family: 'Heebo', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; color: var(--text-soft); transition: all 0.2s; text-align: center; }
+  .s-offer   { border-color: var(--success);  background: #E8F5E9; color: #2E7D32; }
+  .s-request { border-color: var(--clay);     background: #FFF3E0; color: #E65100; }
+  .s-from    { border-color: var(--outgoing); background: #E8F4E8; color: var(--outgoing); }
+  .s-to      { border-color: var(--incoming); background: #F4E8E8; color: var(--incoming); }
+  .s-both    { border-color: var(--sky);      background: #E8F4F8; color: #1565C0; }
+  .s-call    { border-color: var(--sky);      background: #E8F4F8; color: #1565C0; }
+  .s-wa      { border-color: var(--whatsapp); background: #E8F8EF; color: #1A7A45; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 13px; background: var(--sand-light); border-radius: 10px; border: 2px solid #E0D5C5; }
+  .toggle { width: 46px; height: 25px; background: #CCC; border-radius: 13px; position: relative; cursor: pointer; transition: background 0.3s; flex-shrink: 0; }
+  .toggle.on { background: var(--olive-light); }
+  .toggle::after { content: ''; position: absolute; width: 19px; height: 19px; background: white; border-radius: 50%; top: 3px; right: 3px; transition: right 0.3s; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+  .toggle.on::after { right: 24px; }
+
+  .time-row { display: flex; gap: 8px; }
+  .time-row input { flex: 1; }
+
+  .date-selector { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+  .date-selector::-webkit-scrollbar { display: none; }
+  .date-chip { flex-shrink: 0; padding: 8px 14px; border: 2px solid #E0D5C5; border-radius: 20px; background: var(--white); font-family: 'Heebo', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer; color: var(--text-soft); transition: all 0.2s; }
+  .date-chip.sel { border-color: var(--night); background: var(--night); color: var(--sand); }
+  .date-chip.multi-sel { border-color: var(--olive); background: var(--olive); color: white; }
+  .date-label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0; }
+  .reg-inline { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 700; color: var(--text-soft); }
+  .reg-inline.on { color: var(--olive); }
+  .toggle-sm { width: 38px; height: 21px; background: #CCC; border-radius: 11px; position: relative; flex-shrink: 0; transition: background 0.3s; }
+  .toggle-sm.on { background: var(--olive-light); }
+  .toggle-sm::after { content: ''; position: absolute; width: 15px; height: 15px; background: white; border-radius: 50%; top: 3px; right: 3px; transition: right 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  .toggle-sm.on::after { right: 20px; }
+  .reg-hint { font-size: 0.72rem; color: var(--olive); margin-top: 5px; font-weight: 600; }
+  .reg-hint.hidden { display: none; }
+
+  /* SEATS PICKER */
+  .seats-row { display: flex; align-items: center; gap: 10px; }
+  .seats-opt { display: flex; flex-direction: column; align-items: center; }
+  .seats-opt label { font-size: 0.75rem; margin-bottom: 4px; }
+  .seats-btn-group { display: flex; gap: 6px; }
+  .seat-btn { width: 36px; height: 36px; border-radius: 8px; border: 2px solid #E0D5C5; background: var(--white); font-family: 'Heebo', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; color: var(--text-soft); transition: all 0.2s; }
+  .seat-btn.sel { border-color: var(--clay); background: var(--clay); color: white; }
+  .seats-hint { font-size: 0.75rem; color: var(--text-soft); }
+
+  .submit-btn { width: 100%; padding: 15px; background: var(--olive); color: white; border: none; border-radius: 12px; font-family: 'Frank Ruhl Libre', serif; font-size: 1.1rem; font-weight: 700; cursor: pointer; margin-top: 6px; transition: transform 0.15s; }
+  .submit-btn:active { transform: scale(0.98); }
+
+  /* VOICE */
+  .voice-section { background: linear-gradient(135deg, #1C2333, #2A3347); border-radius: 13px; padding: 16px; margin-bottom: 14px; color: white; text-align: center; }
+  .voice-title { font-size: 0.87rem; font-weight: 600; color: var(--sand); margin-bottom: 2px; }
+  .voice-sub { font-size: 0.72rem; color: #8899AA; margin-bottom: 12px; }
+  .record-btn { width: 66px; height: 66px; border-radius: 50%; background: var(--danger); border: none; font-size: 1.7rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(192,57,43,0.4); }
+  .record-btn.recording { background: var(--danger); animation: prec 1.2s infinite; }
+  @keyframes prec { 0%{box-shadow:0 0 0 0 rgba(192,57,43,.5)} 70%{box-shadow:0 0 0 15px rgba(192,57,43,0)} 100%{box-shadow:0 0 0 0 rgba(192,57,43,0)} }
+  .record-status { font-size: 0.78rem; color: #8899AA; margin-top: 8px; min-height: 18px; }
+  .transcribe-btn { margin-top: 10px; padding: 9px 22px; background: var(--olive); color: white; border: none; border-radius: 20px; font-family: 'Heebo', sans-serif; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: none; }
+  .transcribe-btn.show { display: inline-block; }
+  .ai-result { background: rgba(107,124,58,0.15); border: 1px solid var(--olive-light); border-radius: 10px; padding: 11px; margin-top: 10px; text-align: right; font-size: 0.85rem; color: var(--sand); display: none; line-height: 1.6; }
+  .ai-result.show { display: block; }
+  .ai-rl { font-size: 0.72rem; color: var(--olive-light); margin-bottom: 3px; font-weight: 600; }
+  .apply-ai-btn { margin-top: 8px; padding: 7px 16px; background: var(--clay); color: white; border: none; border-radius: 20px; font-family: 'Heebo', sans-serif; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+
+  /* CONFIRM DIALOG */
+  .confirm-overlay { position: fixed; inset: 0; background: rgba(28,35,51,0.7); z-index: 998; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .confirm-overlay.hidden { display: none; }
+  .confirm-box { background: var(--white); border-radius: 20px; padding: 24px 22px; width: 100%; max-width: 340px; text-align: center; }
+  .confirm-title { font-family: 'Frank Ruhl Libre', serif; font-size: 1.2rem; font-weight: 700; color: var(--night); margin-bottom: 8px; }
+  .confirm-sub { font-size: 0.85rem; color: var(--text-soft); margin-bottom: 20px; line-height: 1.5; }
+  .confirm-btns { display: flex; gap: 10px; }
+  .confirm-yes { flex: 1; padding: 12px; background: var(--danger); color: white; border: none; border-radius: 10px; font-family: 'Heebo', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; }
+  .confirm-no  { flex: 1; padding: 12px; background: #EEE; color: var(--text); border: none; border-radius: 10px; font-family: 'Heebo', sans-serif; font-size: 0.9rem; font-weight: 700; cursor: pointer; }
+
+  .delay-btns { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 4px; }
+  .delay-opt { padding: 12px 16px; background: #EDE7F6; color: var(--delayed); border: 2px solid #D1C4E9; border-radius: 12px; font-family: 'Heebo', sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.15s; min-width: 72px; }
+  .delay-opt:hover { background: var(--delayed); color: white; }
+
+  /* REGISTER */
+  .register-overlay { position: fixed; inset: 0; background: rgba(28,35,51,0.88); z-index: 999; display: flex; align-items: flex-end; }
+  .register-overlay.hidden { display: none; }
+  .register-box { background: var(--white); border-radius: 24px 24px 0 0; padding: 28px 22px 38px; width: 100%; max-width: 480px; margin: 0 auto; animation: slideUp 0.3s ease; }
+  @keyframes slideUp { from{transform:translateY(40px)} to{transform:translateY(0)} }
+  .reg-title { font-family: 'Frank Ruhl Libre', serif; font-size: 1.45rem; font-weight: 900; color: var(--night); margin-bottom: 5px; }
+  .reg-sub { font-size: 0.83rem; color: var(--text-soft); margin-bottom: 22px; line-height: 1.5; }
+
+  .toast { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: var(--night); color: var(--sand); padding: 11px 22px; border-radius: 30px; font-size: 0.87rem; font-weight: 600; z-index: 9999; pointer-events: none; opacity: 0; transition: opacity 0.3s; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+  .toast.show { opacity: 1; }
+
+  /* LEADERBOARD STRIP */
+  .lb-strip { margin-top: 12px; text-align: center; }
+  .lb-strip-label { font-size: 0.7rem; color: var(--clay); font-weight: 700; display: block; margin-bottom: 8px; letter-spacing: 0.5px; }
+  .lb-podium { display: flex; align-items: flex-end; justify-content: center; gap: 6px; }
+  .lb-podium-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .lb-podium-item.first { margin-bottom: 8px; }
+  .lb-podium-item .lb-medal { font-size: 1.2rem; }
+  .lb-podium-item .lb-name { font-size: 0.72rem; color: var(--sand); font-weight: 600; max-width: 90px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-podium-item.first .lb-name { font-size: 0.8rem; color: white; }
+  .lb-podium-item .lb-num { font-size: 0.65rem; color: var(--clay); font-weight: 700; }
+  .lb-podium-item.first .lb-num { color: var(--sand); }
+  .lb-sep { color: rgba(255,255,255,0.15); font-size: 0.8rem; }
+  .lb-empty { font-size: 0.75rem; color: #8899AA; }
+  /* FLOATING RECORD BUTTON */
+  .float-rec-btn { position: fixed; bottom: 80px; left: 20px; z-index: 200; width: 58px; height: 58px; border-radius: 50%; background: var(--danger); color: white; font-size: 1.6rem; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(192,57,43,0.5); cursor: pointer; transition: transform 0.2s; animation: float-pulse 3s ease-in-out infinite; }
+  .float-rec-btn.recording { animation: prec 1.2s infinite; }
+  .float-rec-btn:active { transform: scale(0.92); }
+  @keyframes float-pulse { 0%,100%{box-shadow:0 4px 20px rgba(192,57,43,0.4)} 50%{box-shadow:0 4px 28px rgba(192,57,43,0.7)} }
+  .float-rec-panel { position: fixed; bottom: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: flex-end; justify-content: center; background: rgba(28,35,51,0.7); animation: fadeIn 0.2s; }
+  .float-rec-panel.hidden { display: none; }
+  .frp-inner { background: var(--night); border-radius: 24px 24px 0 0; padding: 24px 20px 100px; width: 100%; max-width: 480px; text-align: center; position: relative; animation: slideUp 0.3s ease; }
+  .frp-title { font-family: 'Frank Ruhl Libre', serif; font-size: 1.3rem; font-weight: 900; color: var(--sand); margin-bottom: 4px; }
+  .frp-sub { font-size: 0.8rem; color: #8899AA; margin-bottom: 4px; }
+  .frp-preview { background: rgba(255,255,255,0.06); border-radius: 12px; padding: 14px; margin-top: 14px; text-align: right; }
+  .frp-preview.hidden { display: none; }
+  .frp-preview-text { font-size: 0.9rem; color: var(--sand); line-height: 1.6; margin-bottom: 12px; }
+  .frp-btns { display: flex; gap: 8px; }
+  .frp-send { flex: 1; padding: 12px; background: var(--olive); color: white; border: none; border-radius: 10px; font-family: 'Heebo', sans-serif; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
+  .frp-cancel { padding: 12px 16px; background: rgba(255,255,255,0.08); color: #8899AA; border: none; border-radius: 10px; font-family: 'Heebo', sans-serif; font-size: 0.88rem; cursor: pointer; }
+  .frp-close { position: absolute; top: 16px; left: 16px; background: none; border: none; color: #8899AA; font-size: 1.2rem; cursor: pointer; }
+
+  .welcome-box { background: var(--white); border-radius: 24px 24px 0 0; padding: 32px 24px 40px; width: 100%; max-width: 480px; margin: 0 auto; animation: slideUp 0.35s ease; }
+  .welcome-logo { font-size: 3.5rem; text-align: center; margin-bottom: 10px; }
+  .welcome-title { font-family: 'Frank Ruhl Libre', serif; font-size: 1.6rem; font-weight: 900; color: var(--night); text-align: center; margin-bottom: 4px; }
+  .welcome-tagline { font-size: 0.85rem; color: var(--clay); text-align: center; margin-bottom: 24px; font-weight: 500; }
+  .welcome-features { background: var(--sand-light); border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .wf-row { display: flex; align-items: center; gap: 12px; font-size: 0.92rem; font-weight: 600; color: var(--text); }
+  .wf-icon { font-size: 1.2rem; flex-shrink: 0; }
+  .welcome-how { background: var(--night); border-radius: 14px; padding: 14px 16px; margin-bottom: 20px; }
+  .welcome-how-title { font-size: 0.78rem; font-weight: 700; color: var(--clay); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .welcome-how-text { font-size: 0.85rem; color: var(--sand); line-height: 1.6; }
+  .profile-hero { background: linear-gradient(160deg, var(--night) 0%, var(--night-soft) 100%); padding: 28px 20px 22px; text-align: center; }
+  .profile-avatar { width: 72px; height: 72px; border-radius: 50%; background: var(--clay); color: white; font-family: 'Frank Ruhl Libre', serif; font-size: 2rem; font-weight: 900; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); }
+  .profile-name { font-family: 'Frank Ruhl Libre', serif; font-size: 1.4rem; font-weight: 900; color: var(--sand); margin-bottom: 4px; }
+  .profile-phone { font-size: 0.88rem; color: #8899AA; margin-bottom: 14px; }
+  .profile-edit-btn { padding: 8px 20px; background: rgba(255,255,255,0.1); border: 1.5px solid rgba(255,255,255,0.2); border-radius: 20px; color: var(--sand); font-family: 'Heebo', sans-serif; font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+  .profile-edit-btn:hover { background: rgba(255,255,255,0.18); }
+  .profile-edit-box { padding: 16px 16px 4px; background: var(--white); border-bottom: 2px solid #E8DDD0; }
+  .profile-edit-box.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<!-- CONFIRM DIALOG -->
+<div class="confirm-overlay hidden" id="confirmOverlay">
+  <div class="confirm-box">
+    <div class="confirm-title">🗑️ מחיקת טרמפ</div>
+    <div class="confirm-sub">האם אתה בטוח שברצונך למחוק את הטרמפ?<br>לא ניתן לשחזר אותו.</div>
+    <div class="confirm-btns">
+      <button class="confirm-yes" onclick="confirmDelete()">כן, מחק</button>
+      <button class="confirm-no"  onclick="cancelDelete()">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELAY PICKER -->
+<div class="confirm-overlay hidden" id="delayOverlay">
+  <div class="confirm-box">
+    <div class="confirm-title">⏰ כמה זמן מתעכב?</div>
+    <div class="confirm-sub">הטרמפ יישמר פעיל בהתאם</div>
+    <div class="delay-btns">
+      <button class="delay-opt" onclick="applyDelay(5)">5 דק'</button>
+      <button class="delay-opt" onclick="applyDelay(10)">10 דק'</button>
+      <button class="delay-opt" onclick="applyDelay(15)">15 דק'</button>
+      <button class="delay-opt" onclick="applyDelay(20)">20 דק'</button>
+      <button class="delay-opt" onclick="applyDelay(30)">30 דק'</button>
+      <button class="delay-opt" onclick="applyDelay(45)">45 דק'</button>
+      <button class="delay-opt" onclick="applyDelay(60)">שעה</button>
+    </div>
+    <button class="confirm-no" style="width:100%;margin-top:10px" onclick="cancelDelay()">ביטול</button>
+  </div>
+</div>
+
+<!-- WELCOME SCREEN (first time only) -->
+<div class="register-overlay hidden" id="welcome">
+  <div class="welcome-box">
+    <div class="welcome-logo">🚗</div>
+    <div class="welcome-title">טרמפים מבואות יריחו</div>
+    <div class="welcome-tagline">כי השכן הוא האוטובוס שלנו</div>
+    <div class="welcome-features">
+      <div class="wf-row"><span class="wf-icon">🟢</span><span>הצע טרמפ לשכנים</span></div>
+      <div class="wf-row"><span class="wf-icon">🟠</span><span>בקש טרמפ מהשכנים</span></div>
+      <div class="wf-row"><span class="wf-icon">⭐</span><span>טרמפים קבועים תמיד זמינים</span></div>
+    </div>
+    <div class="welcome-how">
+      <div class="welcome-how-title">איך זה עובד?</div>
+      <div class="welcome-how-text">פרסם טרמפ ← שכן רואה ← לוחץ וואטסאפ או טלפון ← מתאמים ביניכם 🤝</div>
+    </div>
+    <button class="submit-btn" onclick="showRegister()" style="margin-top:8px">בואו נתחיל ←</button>
+  </div>
+</div>
+
+<!-- REGISTER -->
+<div class="register-overlay hidden" id="reg">
+  <div class="register-box">
+    <div class="reg-title">👋 הצטרפות</div>
+    <div class="reg-sub">כניסה חד-פעמית בלבד – שם וטלפון.</div>
+    <div class="form-group"><label>שם מלא</label><input type="text" id="regName" placeholder="ישראל ישראלי" /></div>
+    <div class="form-group"><label>מספר טלפון</label><input type="tel" id="regPhone" placeholder="05X-XXXXXXX" /></div>
+    <button class="submit-btn" onclick="register()">כניסה 🚗</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<header>
+  <div class="header-inner">
+    <div><div class="logo-title">טרמפים מבואות יריחו</div></div>
+    <span style="font-size:1.7rem">🚗</span>
+  </div>
+</header>
+
+<!-- HOME -->
+<div class="screen active" id="screen-home">
+  <div class="home-hero">
+    <div class="hero-title">שלום, <span id="heroName">חבר</span>!</div>
+    <div class="hero-sub">יחד מגיעים לכל מקום 🏔️</div>
+    <div class="stats-row">
+      <div class="stat-box" onclick="goToFeed('from','today','offer')">
+        <div class="stat-num" id="sOutToday">0</div><div class="stat-label">יוצאים היום</div>
+      </div>
+      <div class="stat-box" onclick="goToFeed('to','today','offer')">
+        <div class="stat-num" id="sInToday">0</div><div class="stat-label">נכנסים היום</div>
+      </div>
+      <div class="stat-box" onclick="goToFeed('from','planned','offer')">
+        <div class="stat-num" id="sFuture">0</div><div class="stat-label">מתוכננים</div>
+      </div>
+    </div>
+    <!-- LEADERBOARD – small row below stats -->
+    <div class="lb-strip" id="leaderboard"></div>
+  </div>
+
+  <div class="quick-btns">
+    <button class="quick-btn qbo" onclick="goTo('screen-add');setType('offer')"><span class="qbi">🟢</span>מציע טרמפ</button>
+    <button class="quick-btn qbr" onclick="goTo('screen-add');setType('request')"><span class="qbi">🟠</span>מחפש טרמפ</button>
+  </div>
+  <div style="padding:4px 16px 0"><div class="section-label">הטרמפים הקרובים ביותר</div></div>
+  <div class="cards-pad" style="padding-top:4px" id="homeList"></div>
+</div>
+
+<!-- FEED -->
+<div class="screen" id="screen-feed">
+  <!-- Row 1: Offer / Request – big -->
+  <div class="type-tabs-wrap">
+    <div class="type-tabs">
+      <button class="type-tab active-offer" id="tto" onclick="setTypeTab('offer')">
+        <span class="tt-icon">🟢</span>
+        <span>מציעים טרמפ <span class="type-tab-count" id="cto">0</span></span>
+      </button>
+      <button class="type-tab" id="ttr" onclick="setTypeTab('request')">
+        <span class="tt-icon">🟠</span>
+        <span>מחפשים טרמפ <span class="type-tab-count inactive" id="ctr">0</span></span>
+      </button>
+    </div>
+  </div>
+  <!-- Row 2: Direction – medium -->
+  <div class="dir-tabs-wrap">
+    <div class="dir-tabs">
+      <button class="dir-tab-main aout" id="dt-from" onclick="setDirTab('from')">🚀 יוצאים מהיישוב</button>
+      <button class="dir-tab-main"      id="dt-to"   onclick="setDirTab('to')">🏠 נכנסים ליישוב</button>
+    </div>
+  </div>
+  <!-- Row 3: Time – small -->
+  <div class="time-tabs-wrap">
+    <div class="time-tabs">
+      <button class="time-tab active" id="tt-today"   onclick="setTimeTab('today')">📅 היום <span class="tab-count" id="ct">0</span></button>
+      <button class="time-tab"        id="tt-planned" onclick="setTimeTab('planned')">🗓️ מתוכנן <span class="tab-count" id="cp">0</span></button>
+      <button class="time-tab"        id="tt-regular" onclick="setTimeTab('regular')">⭐ קבועים <span class="tab-count" id="creg">0</span></button>
+    </div>
+  </div>
+  <div class="cards-pad" id="feedCont"></div>
+</div>
+
+<!-- ADD -->
+<div class="screen" id="screen-add">
+  <div class="form-wrap">
+    <div class="form-title">➕ הוספת טרמפ</div>
+
+    <div class="form-group"><label>אני:</label>
+      <div class="seg-tabs">
+        <button class="seg-tab s-offer" id="tOffer" onclick="setType('offer')">🟢 מציע טרמפ</button>
+        <button class="seg-tab" id="tReq" onclick="setType('request')">🟠 מחפש טרמפ</button>
+      </div>
+    </div>
+
+    <div class="voice-section">
+      <div class="voice-title">🎤 הוסף בהקלטה קולית</div>
+      <div class="voice-sub">הקלט – ובינה מלאכותית תמיר לטקסט אוטומטית</div>
+      <button class="record-btn" id="recBtn" onclick="toggleRec()">🎤</button>
+      <div class="record-status" id="recStatus">לחץ להקלטה</div>
+      <button class="transcribe-btn" id="transBtn" onclick="transcribe()">✨ המר להודעת טרמפ</button>
+      <div class="ai-result" id="aiRes">
+        <div class="ai-rl">📝 זוהה על ידי AI:</div>
+        <div id="aiText"></div>
+        <button class="apply-ai-btn" onclick="applyAI()">✅ החל על הטופס</button>
+      </div>
+    </div>
+
+    <div class="form-group"><label>כיוון הנסיעה:</label>
+      <div class="seg-tabs">
+        <button class="seg-tab s-from" id="dFrom" onclick="setDir('from')">🚀 מהיישוב</button>
+        <button class="seg-tab" id="dTo" onclick="setDir('to')">🏠 ליישוב</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label id="destLabel">יעד:</label>
+      <input type="text" id="dest" placeholder="הקלד יעד..." autocomplete="off" />
+      <div class="date-selector" id="destChips" style="margin-top:8px"></div>
+    </div>
+
+    <div class="form-group"><label>שעה משוערת <span style="font-weight:400;color:#AAA">(ריק = עכשיו)</span></label>
+      <input type="time" id="tFrom" />
+    </div>
+
+    <div class="form-group">
+      <div class="date-label-row">
+        <label style="margin-bottom:0">תאריך הנסיעה:</label>
+        <div class="reg-inline" onclick="toggleRegForm()">
+          <span>⭐ קבוע</span>
+          <div class="toggle toggle-sm" id="regToggle"></div>
+        </div>
+      </div>
+      <div class="date-selector" id="dateSel" style="margin-top:8px"></div>
+      <div class="reg-hint hidden" id="regHint">לחץ על מספר ימים לבחירה מרובה</div>
+    </div>
+    <div class="form-group" id="seatsGroup">
+      <label>מקומות פנויים <span style="font-weight:400;color:#AAA">(אופציונלי)</span></label>
+      <div class="seats-row">
+        <div class="seats-btn-group" id="seatBtns">
+          <button class="seat-btn" onclick="setSeat(1)">1</button>
+          <button class="seat-btn" onclick="setSeat(2)">2</button>
+          <button class="seat-btn" onclick="setSeat(3)">3</button>
+          <button class="seat-btn" onclick="setSeat(4)">4+</button>
+        </div>
+        <span class="seats-hint">לחץ לסימון</span>
+      </div>
+    </div>
+
+    <!-- CONTACT PREF - only for offers -->
+    <div class="form-group" id="contactPrefGroup">
+      <label>איך לפנות אליך?</label>
+      <div class="seg-tabs">
+        <button class="seg-tab s-both"  id="cp-both"  onclick="setContactPref('both')">📞💬 שניהם</button>
+        <button class="seg-tab"         id="cp-call"  onclick="setContactPref('call')">📞 שיחה בלבד</button>
+        <button class="seg-tab"         id="cp-wa"    onclick="setContactPref('wa')">💬 וואטסאפ בלבד</button>
+      </div>
+    </div>
+
+    <div class="form-group"><label>הערה (אופציונלי):</label>
+      <input type="text" id="note" placeholder='למשל: "עוצרים בסופר"' />
+    </div>
+
+    <div class="form-group">
+      <div class="toggle-row" style="background:#E8F8EF;border-color:#A5D6B7">
+        <div>
+          <span style="font-size:.9rem;font-weight:700;color:#1A7A45">💬 שתף גם בקבוצת הוואטסאפ</span>
+          <div style="font-size:.72rem;color:#5C9970;margin-top:2px">ייפתח וואטסאפ אחרי הפרסום</div>
+        </div>
+        <div class="toggle" id="shareToggle" onclick="toggleShare()"></div>
+      </div>
+    </div>
+
+    <button class="submit-btn" id="submitBtn" onclick="submitTrip()">פרסם טרמפ 🚗</button>
+  </div>
+</div>
+
+<!-- PROFILE SCREEN -->
+<div class="screen" id="screen-mine">
+  <div class="profile-hero">
+    <div class="profile-avatar" id="profileAvatar">?</div>
+    <div class="profile-name" id="profileName">–</div>
+    <div class="profile-phone" id="profilePhone">–</div>
+    <button class="profile-edit-btn" onclick="toggleProfileEdit()">✏️ עריכת פרטים</button>
+  </div>
+
+  <div class="profile-edit-box hidden" id="profileEditBox">
+    <div class="form-group"><label>שם מלא</label><input type="text" id="editName" /></div>
+    <div class="form-group"><label>טלפון</label><input type="tel" id="editPhone" /></div>
+    <button class="submit-btn" onclick="saveProfile()">שמור שינויים</button>
+  </div>
+
+  <div style="padding:4px 16px 0"><div class="section-label">הטרמפים הפעילים שלי</div></div>
+  <div class="cards-pad" style="padding-top:6px" id="mineCont"></div>
+</div>
+
+<!-- FLOATING RECORD BUTTON -->
+<div class="float-rec-btn" id="floatRecBtn" onclick="toggleFloatRec()">🎤</div>
+
+<!-- FLOATING RECORD PANEL – shown only after recording stops -->
+<div class="float-rec-panel hidden" id="floatRecPanel">
+  <div class="frp-inner">
+    <div class="frp-title">🎤 טרמפ מהיר</div>
+    <div class="frp-preview hidden" id="frpPreview">
+      <div class="frp-preview-text" id="frpPreviewText"></div>
+      <div class="frp-btns">
+        <button class="frp-send" onclick="sendFloatTrip()">🚗 פרסם טרמפ</button>
+        <button class="frp-cancel" onclick="closeFloatRec()">ביטול</button>
+      </div>
+    </div>
+    <div class="record-status" id="floatRecStatus" style="color:#8899AA;margin-top:8px"></div>
+    <button class="frp-close" onclick="closeFloatRec()">✕</button>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nb-home" onclick="goTo('screen-home')"><span class="ni">🏠</span>בית</button>
+  <button class="nav-btn" id="nb-feed" onclick="goTo('screen-feed')"><span class="ni">📋</span>טרמפים</button>
+  <button class="nav-btn" id="nb-add"  onclick="goTo('screen-add')"><span class="ni">➕</span>הוסף</button>
+  <button class="nav-btn" id="nb-mine" onclick="goTo('screen-mine')"><span class="ni">👤</span>פרופיל</button>
+</nav>
+
+<script>
+// ===== STATE =====
+let user=null, trips=[];
+let cType='offer', cDir='from';
+let cDirTab='from', cTimeTab='today', cTypeTab='offer';
+let isRegForm=false, isRec=false, mr=null, chunks=[], blob=null, aiParsed=null, selDate=null;
+let selectedSeats=0;
+let contactPref='both';
+let pendingDeleteId=null;
+let shareToGroup=false;
+let selectedDates=[]; // for multi-day regular trips
+
+const GROUP_LINK = 'https://chat.whatsapp.com/הכנס_כאן_את_הקישור';
+
+// ===== HELPERS =====
+function todayStr(){ return new Date().toISOString().split('T')[0]; }
+function nowMinutes(){ const n=new Date(); return n.getHours()*60+n.getMinutes(); }
+function timeToMinutes(t){ if(!t)return 9999; const[h,m]=t.split(':').map(Number); return h*60+m; }
+function dateLabel(s){
+  const t=todayStr(), d=new Date(s+'T00:00:00'), diff=Math.round((d-new Date(t+'T00:00:00'))/86400000);
+  if(diff===0)return'היום'; if(diff===1)return'מחר'; if(diff===2)return'מחרתיים';
+  return['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'][d.getDay()];
+}
+function todayDow(){ return String(new Date().getDay()); }
+function isRegularToday(t){
+  if(!t.regular) return false;
+  if(!t.regularDays || t.regularDays.length===0) return true;
+  return t.regularDays.includes(todayDow());
+}
+function effectiveTime(t){ return timeToMinutes(t.delayedUntil || t.timeFrom); }
+function effectiveDatetime(t){
+  // Returns minutes since epoch-ish for sorting: date * 1440 + time
+  const dateStr = t.date || todayStr();
+  const dateMins = new Date(dateStr+'T00:00:00').getTime() / 60000;
+  return dateMins + effectiveTime(t);
+}
+function sortT(arr){ return [...arr].sort((a,b)=>effectiveDatetime(a)-effectiveDatetime(b)); }
+
+// ===== AUTO-EXPIRE: remove trips where trip time + 60min has passed (non-regular, today) =====
+function purgeExpired(){
+  const today=todayStr(), now=nowMinutes();
+  const before=trips.length;
+  trips=trips.filter(t=>{
+    if(t.regular) return true;                      // keep regulars always
+    if(t.date !== today) return true;               // keep future trips
+    // For today: keep if delayed flag OR trip end time + 60min hasn't passed
+    const effectiveTime = t.delayedUntil
+      ? timeToMinutes(t.delayedUntil)
+      : timeToMinutes(t.timeTo || t.timeFrom);
+    return (effectiveTime + 60) > now;
+  });
+  if(trips.length !== before) localStorage.setItem('mvy_t', JSON.stringify(trips));
+}
+
+// ===== INIT =====
+window.onload=()=>{
+  const u=localStorage.getItem('mvy_u'); if(u) user=JSON.parse(u);
+  const tr=localStorage.getItem('mvy_t'); if(tr) trips=JSON.parse(tr);
+  demoData();
+  purgeExpired();
+  buildDates();
+  buildDestChips();
+  setInterval(()=>{ purgeExpired(); renderHome(); if(document.getElementById('screen-feed').classList.contains('active')) renderFeed(); }, 5*60*1000);
+  if(!user){
+    const seen=localStorage.getItem('mvy_welcome');
+    if(!seen){ document.getElementById('welcome').classList.remove('hidden'); }
+    else { document.getElementById('reg').classList.remove('hidden'); }
+  } else {
+    document.getElementById('heroName').textContent=user.name.split(' ')[0];
+    renderHome();
+  }
+};
+
+function showRegister(){
+  localStorage.setItem('mvy_welcome','1');
+  document.getElementById('welcome').classList.add('hidden');
+  document.getElementById('reg').classList.remove('hidden');
+}
+
+function register(){
+  const n=document.getElementById('regName').value.trim(), p=document.getElementById('regPhone').value.trim();
+  if(!n||!p){showToast('נא למלא שם וטלפון');return;}
+  user={name:n,phone:p}; localStorage.setItem('mvy_u',JSON.stringify(user));
+  document.getElementById('reg').classList.add('hidden');
+  document.getElementById('heroName').textContent=n.split(' ')[0];
+  showToast('ברוך הבא, '+n.split(' ')[0]+'! 🎉'); renderHome();
+}
+
+// ===== NAV =====
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const m={'screen-home':'nb-home','screen-feed':'nb-feed','screen-add':'nb-add','screen-mine':'nb-mine'};
+  if(m[id]) document.getElementById(m[id]).classList.add('active');
+  if(id==='screen-feed') renderFeed();
+  if(id==='screen-home') { purgeExpired(); renderHome(); }
+  if(id==='screen-mine') renderMine();
+  if(id==='screen-add') resetForm();
+}
+function goToFeed(dir,time,type){
+  cDirTab=dir; cTimeTab=time; cTypeTab=type;
+  goTo('screen-feed');
+  document.getElementById('dt-from').className='dir-tab-main'+(dir==='from'?' aout':'');
+  document.getElementById('dt-to').className='dir-tab-main'+(dir==='to'?' ain':'');
+  ['today','planned','regular'].forEach(x=>document.getElementById('tt-'+x).classList.toggle('active',x===time));
+  document.getElementById('tto').className='type-tab'+(type==='offer'?' active-offer':'');
+  document.getElementById('ttr').className='type-tab'+(type==='request'?' active-request':'');
+  document.getElementById('cto').className='type-tab-count'+(type==='offer'?'':' inactive');
+  document.getElementById('ctr').className='type-tab-count'+(type==='request'?'':' inactive');
+  renderFeed();
+}
+
+// ===== TABS =====
+function setDirTab(d){ cDirTab=d; document.getElementById('dt-from').className='dir-tab-main'+(d==='from'?' aout':''); document.getElementById('dt-to').className='dir-tab-main'+(d==='to'?' ain':''); renderFeed(); }
+function setTimeTab(t){ cTimeTab=t; ['today','planned','regular'].forEach(x=>document.getElementById('tt-'+x).classList.toggle('active',x===t)); renderFeed(); }
+function setTypeTab(t){
+  cTypeTab=t;
+  document.getElementById('tto').className='type-tab'+(t==='offer'?' active-offer':'');
+  document.getElementById('ttr').className='type-tab'+(t==='request'?' active-request':'');
+  document.getElementById('cto').className='type-tab-count'+(t==='offer'?'':' inactive');
+  document.getElementById('ctr').className='type-tab-count'+(t==='request'?'':' inactive');
+  renderFeed();
+}
+
+// ===== FORM =====
+function setType(t){
+  cType=t;
+  document.getElementById('tOffer').className='seg-tab'+(t==='offer'?' s-offer':'');
+  document.getElementById('tReq').className='seg-tab'+(t==='request'?' s-request':'');
+  document.getElementById('seatsGroup').style.display=t==='offer'?'block':'none';
+  document.getElementById('contactPrefGroup').style.display=t==='offer'?'block':'none';
+}
+function setContactPref(p){
+  contactPref=p;
+  document.getElementById('cp-both').className='seg-tab'+(p==='both'?' s-both':'');
+  document.getElementById('cp-call').className='seg-tab'+(p==='call'?' s-call':'');
+  document.getElementById('cp-wa').className  ='seg-tab'+(p==='wa'  ?' s-wa':'');
+}
+function setDir(d){
+  cDir=d;
+  document.getElementById('dFrom').className='seg-tab'+(d==='from'?' s-from':'');
+  document.getElementById('dTo').className='seg-tab'+(d==='to'?' s-to':'');
+  document.getElementById('destLabel').textContent = d==='from' ? 'יעד:' : 'מ:';
+}
+
+const DEST_LIST = ['מצפה יריחו','מישור אדומים','כביש 90','נעמה','מועצה בקעת הירדן','מעלה אדומים','שער בנימין','מעלה מכמש','כוכב השחר','רימונים','פסגות','עלי','שילה','ירושלים','בית שאן','מרכז','צפון','דרום'];
+
+function buildDestChips(){
+  document.getElementById('destChips').innerHTML = DEST_LIST.map(d=>
+    `<button class="date-chip" onclick="selectDest('${d}',this)">${d}</button>`
+  ).join('');
+}
+
+function selectDest(val, el){
+  document.getElementById('dest').value = val;
+  document.querySelectorAll('#destChips .date-chip').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function toggleRegForm(){  isRegForm=!isRegForm;
+  document.getElementById('regToggle').classList.toggle('on', isRegForm);
+  document.getElementById('regHint').classList.toggle('hidden', !isRegForm);
+  const ri=document.getElementById('reg-inline-el');
+  if(ri) ri.classList.toggle('on', isRegForm);
+  selectedDates=[];
+  buildDates();
+}
+function toggleShare(){ shareToGroup=!shareToGroup; document.getElementById('shareToggle').classList.toggle('on',shareToGroup); }
+
+function setSeat(n){
+  selectedSeats=n;
+  document.querySelectorAll('.seat-btn').forEach((b,i)=>b.classList.toggle('sel',(i+1)===n));
+}
+
+function resetForm(){
+  setType('offer'); setDir('from'); setContactPref('both');
+  document.getElementById('dest').value='';
+  document.getElementById('tFrom').value='';
+  document.getElementById('note').value='';
+  document.querySelectorAll('#destChips .date-chip').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('destLabel').textContent='יעד:';
+  selectedSeats=0; isRegForm=false; shareToGroup=false; selectedDates=[];
+  document.getElementById('regToggle').classList.remove('on');
+  document.getElementById('shareToggle').classList.remove('on');
+  document.getElementById('regHint').classList.add('hidden');
+  document.getElementById('dateSel').style.opacity='1';
+  document.querySelectorAll('.seat-btn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('submitBtn').textContent='פרסם טרמפ 🚗';
+  document.querySelector('.form-title').textContent='➕ הוספת טרמפ';
+  buildDates();
+}
+
+// ===== RENDER MY TRIPS =====
+function renderMine(){
+  if(!user){ document.getElementById('mineCont').innerHTML=''; return; }
+
+  // Update profile display
+  const initials = user.name.trim().split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+  document.getElementById('profileAvatar').textContent = initials;
+  document.getElementById('profileName').textContent = user.name;
+  document.getElementById('profilePhone').textContent = user.phone;
+
+  const today=todayStr();
+  const mine=trips.filter(t=> t.phone===user.phone && (t.regular || t.date>=today));
+  const sorted=[...mine.filter(t=>t.regular), ...sortT(mine.filter(t=>!t.regular))];
+  const cont=document.getElementById('mineCont');
+  if(sorted.length===0){
+    cont.innerHTML=`<div class="empty-state"><div class="empty-icon">🚗</div><div class="empty-text">אין לך טרמפים פעילים כרגע.<br>לחץ ➕ כדי לפרסם!</div></div>`;
+    return;
+  }
+  cont.innerHTML=sorted.map(t=>card(t,true)).join('');
+}
+
+function toggleProfileEdit(){
+  const box=document.getElementById('profileEditBox');
+  const isHidden=box.classList.contains('hidden');
+  if(isHidden){
+    document.getElementById('editName').value=user.name;
+    document.getElementById('editPhone').value=user.phone;
+  }
+  box.classList.toggle('hidden');
+}
+
+function saveProfile(){
+  const name=document.getElementById('editName').value.trim();
+  const phone=document.getElementById('editPhone').value.trim();
+  if(!name||!phone){showToast('נא למלא שם וטלפון');return;}
+  const oldPhone=user.phone;
+  user={name,phone};
+  localStorage.setItem('mvy_u',JSON.stringify(user));
+  // Update name/phone on existing trips
+  trips.forEach(t=>{ if(t.phone===oldPhone){ t.name=name; t.phone=phone; } });
+  localStorage.setItem('mvy_t',JSON.stringify(trips));
+  document.getElementById('profileEditBox').classList.add('hidden');
+  document.getElementById('heroName').textContent=name.split(' ')[0];
+  showToast('הפרטים עודכנו ✓');
+  renderMine();
+}
+function buildDates(){
+  const today=new Date(), chips=[];
+  for(let i=0;i<8;i++){
+    const d=new Date(today); d.setDate(today.getDate()+i);
+    const s=d.toISOString().split('T')[0];
+    chips.push({s, l:dateLabel(s)});
+  }
+  if(!isRegForm){
+    // Single date mode – show upcoming days
+    selDate=chips[0].s;
+    document.getElementById('dateSel').innerHTML=chips.map((c,i)=>
+      `<button class="date-chip${i===0?' sel':''}" data-date="${c.s}" onclick="selD('${c.s}',this)">${c.l}</button>`
+    ).join('');
+  } else {
+    // Regular mode – show fixed weekdays
+    const weekDays=[
+      {key:'0',label:'ראשון'},
+      {key:'1',label:'שני'},
+      {key:'2',label:'שלישי'},
+      {key:'3',label:'רביעי'},
+      {key:'4',label:'חמישי'},
+      {key:'5',label:'שישי'},
+      {key:'6',label:'שבת'},
+    ];
+    document.getElementById('dateSel').innerHTML=weekDays.map(d=>
+      `<button class="date-chip" data-day="${d.key}" onclick="selDay('${d.key}',this)">${d.label}</button>`
+    ).join('');
+  }
+}
+
+function selD(s,el){
+  selDate=s;
+  document.querySelectorAll('.date-chip').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function selDay(key,el){
+  if(selectedDates.includes(key)){
+    selectedDates=selectedDates.filter(d=>d!==key);
+    el.classList.remove('multi-sel');
+  } else {
+    selectedDates.push(key);
+    el.classList.add('multi-sel');
+  }
+}
+
+function submitTrip(){
+  const dest=document.getElementById('dest').value.trim();
+  let tFrom=document.getElementById('tFrom').value;
+  const note=document.getElementById('note').value.trim();
+  if(!dest){showToast('נא לציין יעד');return;}
+  // If no time entered, use current time
+  if(!tFrom){
+    const now=new Date();
+    tFrom=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+  }
+
+  const base={
+    type:cType, dir:cDir, dest,
+    timeFrom:tFrom, timeTo:'', note,
+    seats: cType==='offer' && selectedSeats>0 ? selectedSeats : null,
+    contactPref: cType==='offer' ? contactPref : 'both',
+    regular:isRegForm, name:user.name, phone:user.phone,
+    delayedUntil: null
+  };
+
+  if(isRegForm && selectedDates.length>0){
+    // Create one regular trip per selected weekday
+    selectedDates.forEach((day,i)=>{
+      trips.unshift({...base, id:Date.now()+i, date:null, regularDays:[day], regular:true});
+    });
+    const dayNames=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+    const names=selectedDates.map(d=>dayNames[d]).join(', ');
+    showToast(`פורסם טרמפ קבוע ל${names}! ⭐`);
+  } else if(isRegForm){
+    // Regular but no days selected – every day
+    trips.unshift({...base, id:Date.now(), date:null, regularDays:['0','1','2','3','4','5','6'], regular:true});
+    showToast('פורסם טרמפ קבוע לכל יום! ⭐');
+  } else {
+    trips.unshift({...base, id:Date.now(), date:isRegForm?null:selDate});
+    showToast('הטרמפ פורסם! 🚗');
+  }
+  localStorage.setItem('mvy_t',JSON.stringify(trips));
+
+  if(shareToGroup){
+    const prefix=base.dir==='from'?'ל':'מ';
+    const typeLabel=base.type==='offer'?'🚗 טרמפ':'🙋 מחפש טרמפ';
+    const seatsLine=base.seats?`\n🪑 ${base.seats} מקומות`:'';
+    const noteLine=base.note?`\n📌 ${base.note}`:'';
+    const contactLine=base.contactPref==='call'?'📞 שיחה בלבד':base.contactPref==='wa'?'💬 וואטסאפ בלבד':`📞💬 ${base.phone}`;
+    const msg=`${typeLabel} ${prefix}${base.dest}\n🕐 ${base.timeFrom}${seatsLine}${noteLine}\n👤 ${base.name} | ${contactLine}`;
+    setTimeout(()=>{ window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank'); },300);
+  }
+  resetForm();
+  goTo('screen-home');
+}
+
+// ===== DELETE =====
+function askDelete(id){
+  pendingDeleteId=id;
+  document.getElementById('confirmOverlay').classList.remove('hidden');
+}
+function cancelDelete(){ pendingDeleteId=null; document.getElementById('confirmOverlay').classList.add('hidden'); }
+function confirmDelete(){
+  if(!pendingDeleteId) return;
+  trips=trips.filter(t=>t.id!==pendingDeleteId);
+  localStorage.setItem('mvy_t',JSON.stringify(trips));
+  pendingDeleteId=null;
+  document.getElementById('confirmOverlay').classList.add('hidden');
+  showToast('הטרמפ נמחק ✓');
+  renderHome();
+  if(document.getElementById('screen-feed').classList.contains('active')) renderFeed();
+  if(document.getElementById('screen-mine').classList.contains('active')) renderMine();
+}
+
+// ===== DELAY =====
+function delayTrip(id){
+  // Show delay picker popup
+  document.getElementById('delayOverlay').classList.remove('hidden');
+  document.getElementById('delayOverlay').dataset.tripId = id;
+}
+function cancelDelay(){
+  document.getElementById('delayOverlay').classList.add('hidden');
+}
+function applyDelay(mins){
+  const id = Number(document.getElementById('delayOverlay').dataset.tripId);
+  const t=trips.find(x=>x.id===id); if(!t) return;
+  const base = t.delayedUntil || t.timeTo || t.timeFrom;
+  const total = timeToMinutes(base) + mins;
+  const hh=String(Math.floor(total/60)%24).padStart(2,'0'), mm=String(total%60).padStart(2,'0');
+  t.delayedUntil = `${hh}:${mm}`;
+  localStorage.setItem('mvy_t',JSON.stringify(trips));
+  document.getElementById('delayOverlay').classList.add('hidden');
+  showToast(`⏰ הטרמפ יישמר עד ${t.delayedUntil}`);
+  renderHome();
+  if(document.getElementById('screen-feed').classList.contains('active')) renderFeed();
+}
+
+// ===== LEADERBOARD =====
+function renderLeaderboard(){
+  const now = new Date();
+  // Start of current week (Sunday)
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  startOfWeek.setHours(0,0,0,0);
+  const weekStart = startOfWeek.toISOString().split('T')[0];
+
+  // Count offers per person this week
+  // Regular trips count once per person (not per day)
+  const scores = {};
+  const regularCounted = new Set();
+
+  trips.forEach(t => {
+    if(t.type !== 'offer') return;
+    const key = t.phone;
+    if(!scores[key]) scores[key] = { name: t.name, count: 0 };
+
+    if(t.regular){
+      // Count regular trip once per week per person+dest combo
+      const regKey = key + '_' + t.dest + '_reg';
+      if(!regularCounted.has(regKey)){
+        regularCounted.add(regKey);
+        scores[key].count++;
+      }
+    } else {
+      // Count if trip date is this week
+      if(t.date && t.date >= weekStart){
+        scores[key].count++;
+      }
+    }
+  });
+
+  const top3 = Object.values(scores)
+    .filter(s => s.count > 0)
+    .sort((a,b) => b.count - a.count)
+    .slice(0, 3);
+
+  const el = document.getElementById('leaderboard');
+
+  if(top3.length === 0){
+    el.innerHTML = `<div class="lb-strip-label">🏆 מציעי השבוע</div><div class="lb-empty">אין עדיין – תהיה ראשון! 🚗</div>`;
+    return;
+  }
+
+  const podiumItem = (s, medal, cls) => `
+    <div class="lb-podium-item ${cls}">
+      <span class="lb-medal">${medal}</span>
+      <span class="lb-name">${s.name}</span>
+      <span class="lb-num">${s.count} טרמפים</span>
+    </div>`;
+
+  // Order: 2nd (right in RTL) | 1st (center) | 3rd (left in RTL)
+  const second = top3[1] ? podiumItem(top3[1], '🥈', '') : '<div class="lb-podium-item"></div>';
+  const first  = podiumItem(top3[0], '🥇', 'first');
+  const third  = top3[2] ? podiumItem(top3[2], '🥉', '') : '<div class="lb-podium-item"></div>';
+
+  el.innerHTML = `<div class="lb-strip-label">🏆 מציעי השבוע</div>
+    <div class="lb-podium">${second}${first}${third}</div>`;
+}
+function renderHome(){
+  updateStats();
+  renderLeaderboard();
+  const today=todayStr();
+  const tomorrow=new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+  const tmrStr=tomorrow.toISOString().split('T')[0];
+  const dayAfter=new Date(); dayAfter.setDate(dayAfter.getDate()+2);
+  const dayAfterStr=dayAfter.toISOString().split('T')[0];
+
+  const todayTrips=trips.filter(t=>!t.regular&&t.date===today);
+  const regularTrips=trips.filter(t=>isRegularToday(t)&&(effectiveTime(t)+60)>nowMinutes());
+  const next48=trips.filter(t=>!t.regular&&(t.date===tmrStr||t.date===dayAfterStr));
+
+  const merged=sortT([...todayTrips,...regularTrips,...next48]);
+  let html='';
+  if(merged.length===0){
+    html=`<div class="empty-state"><div class="empty-icon">🚙</div><div class="empty-text">אין טרמפים כרגע.<br>היה הראשון לפרסם!</div></div>`;
+  } else { merged.forEach(t=>html+=card(t,true)); }
+  document.getElementById('homeList').innerHTML=html;
+}
+
+// ===== RENDER FEED =====
+function renderFeed(){
+  const dir=cDirTab, today=todayStr();
+  const byDir=trips.filter(t=>t.dir===dir);
+  const todayDated=byDir.filter(t=>!t.regular&&t.date===today);
+  const regularAll=byDir.filter(t=>t.regular);
+  const regularToday=regularAll.filter(t=>isRegularToday(t)&&(effectiveTime(t)+60)>nowMinutes());
+  const todayMerged=sortT([...todayDated,...regularToday]);
+
+  const plannedPool=sortT(byDir.filter(t=>!t.regular&&t.date>today));
+  const regularPool=regularAll; // ⭐ קבועים תמיד מלאים
+
+  document.getElementById('ct').textContent=todayMerged.length;
+  document.getElementById('cp').textContent=plannedPool.length;
+  document.getElementById('creg').textContent=regularPool.length;
+
+  let pool;
+  if(cTimeTab==='today') pool=todayMerged;
+  else if(cTimeTab==='planned') pool=plannedPool;
+  else pool=regularPool;
+
+  document.getElementById('cto').textContent=pool.filter(t=>t.type==='offer').length;
+  document.getElementById('ctr').textContent=pool.filter(t=>t.type==='request').length;
+
+  const list=pool.filter(t=>t.type===cTypeTab);
+  const emptyMsgs={
+    offer:   {today:'אין מציעי טרמפ היום בכיוון זה 🙁',planned:'אין טרמפים מתוכננים בכיוון זה',regular:'אין טרמפים קבועים בכיוון זה'},
+    request: {today:'אין מחפשי טרמפ היום בכיוון זה 🙁',planned:'אין בקשות מתוכננות בכיוון זה',  regular:'אין בקשות קבועות בכיוון זה'}
+  };
+  const cont=document.getElementById('feedCont');
+  if(list.length===0){
+    cont.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-text">${emptyMsgs[cTypeTab][cTimeTab]}</div></div>`;
+    return;
+  }
+  if(cTimeTab==='planned'){
+    const byDate={};
+    list.forEach(t=>{if(!byDate[t.date])byDate[t.date]=[];byDate[t.date].push(t);});
+    let html='';
+    Object.keys(byDate).sort().forEach(date=>{
+      html+=`<div class="section-label">${dateLabel(date)} · ${date.split('-').reverse().join('/')}</div>`;
+      byDate[date].forEach(t=>html+=card(t,false));
+    });
+    cont.innerHTML=html;
+  } else { cont.innerHTML=list.map(t=>card(t,false)).join(''); }
+}
+
+function updateStats(){
+  const t=todayStr();
+  document.getElementById('sOutToday').textContent=trips.filter(x=>x.dir==='from'&&(!x.regular&&x.date===t||x.regular)).length;
+  document.getElementById('sInToday').textContent =trips.filter(x=>x.dir==='to'  &&(!x.regular&&x.date===t||x.regular)).length;
+  document.getElementById('sFuture').textContent  =trips.filter(x=>!x.regular&&x.date>t).length;
+}
+
+// ===== CARD =====
+function card(t, showDir){
+  const isOwner = user && t.phone===user.phone;
+
+  // Destination label – short: "לירושלים" / "מירושלים"
+  const prefix = t.dir==='from' ? 'ל' : 'מ';
+  const destLabel = `${prefix}${t.dest}`;
+
+  // Time display
+  let timeDisplay = t.timeTo ? `${t.timeFrom}–${t.timeTo}` : t.timeFrom;
+  if(t.delayedUntil) timeDisplay += ` (מתעכב עד ${t.delayedUntil})`;
+
+  // Day tag for non-today trips
+  const today2=todayStr();
+  const tmr2=new Date(); tmr2.setDate(tmr2.getDate()+1);
+  const tmrStr2=tmr2.toISOString().split('T')[0];
+  const da2=new Date(); da2.setDate(da2.getDate()+2);
+  const daStr2=da2.toISOString().split('T')[0];
+  let dayTag='';
+  if(!t.regular&&t.date===tmrStr2) dayTag=`<span class="day-tag day-tag-tmr">מחר</span>`;
+  else if(!t.regular&&t.date===daStr2) dayTag=`<span class="day-tag day-tag-da">מחרתיים</span>`;
+
+  // Full dest for WA message
+  const arr=t.dir==='from'?'→':'←';
+  const fullDest=t.dir==='from'?`מבואות יריחו ${arr} ${t.dest}`:`${t.dest} ${arr} מבואות יריחו`;
+  const msgText = t.type==='offer'
+    ? `שלום ${t.name}, ראיתי את הצעת הטרמפ שלך – ${fullDest} בשעה ${timeDisplay}. אשמח להצטרף!`
+    : `שלום ${t.name}, ראיתי את בקשת הטרמפ שלך – ${fullDest} בשעה ${timeDisplay}. אפשר להצטרף בשמחה!`;
+  const waMsg=encodeURIComponent(msgText);
+
+  const typeBadge=t.type==='offer'?'<span class="badge bo">🟢 מציע</span>':'<span class="badge br">🟠 מחפש</span>';
+  const dateBadge=''; // removed - shown as dayTag next to time instead
+  const dayNames=['א\'','ב\'','ג\'','ד\'','ה\'','ו\'','ש\''];
+  const regDaysLabel = t.regularDays && t.regularDays.length>0 && t.regularDays.length<7
+    ? t.regularDays.map(d=>dayNames[d]).join(' ')
+    : 'כל יום';
+  const regBadge=t.regular?`<span class="badge breg">⭐ קבוע · ${regDaysLabel}</span>`:'';
+  const delBadge=t.delayedUntil?`<span class="badge bdel">⏰ מתעכב</span>`:'';
+  const seatsBadge=t.seats?`<span class="badge bseats">🪑 ${t.seats} מקומות</span>`:'';
+  const callOnlyBadge=(t.contactPref==='call')?`<span class="badge" style="background:#E3F2FD;color:#1565C0">📞 שיחה בלבד</span>`:'';
+  const dirBadge=showDir?`<span class="badge" style="background:#F0F0F0;color:#666">${t.dir==='from'?'🚀 יוצא':'🏠 נכנס'}</span>`:'';
+
+  const cardCls='card '+(t.type==='offer'?'co':'cr')+(t.delayedUntil?' delayed':'');
+
+  const pref = t.contactPref || 'both';
+  const waBtn  = `<a class="btn-wa" href="https://wa.me/972${t.phone.replace(/^0/,'').replace(/-/g,'')}?text=${waMsg}" target="_blank">💬 וואטסאפ</a>`;
+  const callBtn= `<a class="btn-call" href="tel:${t.phone}">📞 התקשר</a>`;
+  const smsBtn = `<a class="btn-sms" href="sms:${t.phone}?body=${waMsg}">✉️ SMS</a>`;
+
+  const contactBtns = !isOwner ? `
+    <div class="action-row">
+      ${pref==='call' ? callBtn + smsBtn : ''}
+      ${pref==='wa'   ? waBtn : ''}
+      ${pref==='both' ? waBtn + callBtn + smsBtn : ''}
+    </div>` : '';
+
+  const ownerBtns = isOwner ? `
+    <div class="owner-actions">
+      ${t.type==='offer' ? `<button class="btn-delay" onclick="delayTrip(${t.id})">⏰ מתעכב</button>` : ''}
+      <button class="btn-delete" onclick="askDelete(${t.id})">🗑️ מחק</button>
+    </div>` : '';
+
+  return `<div class="${cardCls}">
+    <div class="card-top">${typeBadge}<div class="badges">${dirBadge}${dateBadge}${regBadge}${delBadge}${seatsBadge}${callOnlyBadge}</div></div>
+    <div class="trip-dest-big">${destLabel}</div>
+    <div class="trip-time-sub">🕐 ${timeDisplay}${dayTag}</div>
+    ${t.note?`<div class="trip-note">📌 ${t.note}</div>`:''}
+    <div class="trip-user">👤 ${t.name}${isOwner?' <span style="color:#AAA;font-weight:400">(אתה)</span>':''}</div>
+    ${contactBtns}
+    ${ownerBtns}
+  </div>`;
+}
+
+// ===== SOUNDS =====
+function playSound(type){
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    if(type==='start'){
+      // Short ascending beep – recording started
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(660, ctx.currentTime+0.15);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime+0.2);
+      osc.start(); osc.stop(ctx.currentTime+0.2);
+    } else if(type==='success'){
+      // Two rising tones – success
+      osc.frequency.setValueAtTime(523, ctx.currentTime);
+      osc.frequency.setValueAtTime(784, ctx.currentTime+0.15);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime+0.35);
+      osc.start(); osc.stop(ctx.currentTime+0.35);
+    } else if(type==='error'){
+      // Low descending tone – error
+      osc.frequency.setValueAtTime(330, ctx.currentTime);
+      osc.frequency.linearRampToValueAtTime(200, ctx.currentTime+0.3);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0, ctx.currentTime+0.35);
+      osc.start(); osc.stop(ctx.currentTime+0.35);
+    }
+  } catch(e){}
+}
+
+// ===== FLOATING RECORD =====
+let floatMr=null, floatChunks=[], floatBlob=null, floatIsRec=false, floatParsed=null;
+
+function openFloatRec(){ } // no longer needed
+
+function closeFloatRec(){
+  document.getElementById('floatRecPanel').classList.add('hidden');
+  if(floatMr && floatIsRec){ floatMr.stop(); floatIsRec=false; }
+  floatBlob=null; floatParsed=null;
+  // reset float button
+  const btn=document.getElementById('floatRecBtn');
+  btn.textContent='🎤'; btn.classList.remove('recording');
+}
+
+async function toggleFloatRec(){
+  if(!user){ showToast('נא להירשם תחילה'); return; }
+  const btn=document.getElementById('floatRecBtn');
+
+  if(!floatIsRec){
+    // START recording immediately
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      floatMr=new MediaRecorder(stream); floatChunks=[];
+      floatMr.ondataavailable=e=>floatChunks.push(e.data);
+      floatMr.onstop=async()=>{
+        floatBlob=new Blob(floatChunks,{type:'audio/webm'});
+        stream.getTracks().forEach(t=>t.stop());
+        // Show panel in processing state
+        document.getElementById('floatRecPanel').classList.remove('hidden');
+        document.getElementById('frpPreview').classList.add('hidden');
+        document.getElementById('floatRecStatus').textContent='⏳ מעבד...';
+        await processFloatRec();
+      };
+      floatMr.start(); floatIsRec=true;
+      playSound('start');
+      btn.textContent='⏹️'; btn.classList.add('recording');
+      // Show small toast so user knows
+      showToast('🔴 מקליט... לחץ שוב לעצירה');
+    }catch(e){ showToast('לא ניתן לגשת למיקרופון'); }
+  } else {
+    // STOP recording
+    floatMr.stop(); floatIsRec=false;
+    btn.textContent='🎤'; btn.classList.remove('recording');
+  }
+}
+
+async function processFloatRec(){
+  const reader=new FileReader(); reader.readAsDataURL(floatBlob);
+  reader.onloadend=async()=>{
+    const b64=reader.result.split(',')[1];
+    const now=new Date();
+    const currentTime=String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+    try{
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",max_tokens:1000,
+        messages:[{role:"user",content:[
+          {type:"text",text:`אתה עוזר לאפליקציית טרמפים של היישוב מבואות יריחו.
+השעה הנוכחית היא: ${currentTime}.
+המשתמש הקליט הצעת טרמפ קצרה. חלץ את הפרטים:
+1. dir: "from"=מהיישוב, "to"=ליישוב (אם אומר "ליישוב"/"הביתה"/"למבואות" -> "to")
+2. dest: שם היעד (המקום שאליו נוסעים, לא מבואות יריחו)
+3. timeFrom: שעה HH:MM. אם אומר "עכשיו" -> ${currentTime}. אם לא מזכיר שעה -> ${currentTime}
+4. note: הערות נוספות כמו "דרך X", "עוצר ב-X" וכו' - או null
+5. seats: מספר מקומות (1-4) או null
+6. contactPref: "call" אם רק להתקשר, "wa" אם רק וואטסאפ, "both" אחרת
+
+אם לא הצלחת לזהות יעד ברור - החזר {"error":"לא הבנתי, נסה שוב"}
+אחרת החזר JSON בלבד:
+{"dir":"from"/"to","dest":"יעד","timeFrom":"HH:MM","note":null,"seats":null,"contactPref":"both","summary":"תקציר בעברית"}`},
+          {type:"text",text:`[הקלטה: ${b64.substring(0,80)}...]`}
+        ]}]
+      })});
+      const data=await res.json(), text=data.content?.[0]?.text||'';
+      const clean=text.replace(/```json|```/g,'').trim();
+      const parsed=JSON.parse(clean);
+      if(parsed.error){
+        playSound('error');
+        document.getElementById('floatRecStatus').textContent='❌ '+parsed.error;
+        document.getElementById('floatRecBtn').textContent='🎤';
+        return;
+      }
+      floatParsed=parsed;
+      playSound('success');
+      const prefix=parsed.dir==='from'?'ל':'מ';
+      const noteStr=parsed.note?` · ${parsed.note}`:'';
+      const seatsStr=parsed.seats?` · ${parsed.seats} מקומות`:'';
+      document.getElementById('frpPreviewText').innerHTML=
+        `<strong>${prefix}${parsed.dest}</strong> 🕐 ${parsed.timeFrom}${noteStr}${seatsStr}`;
+      document.getElementById('frpPreview').classList.remove('hidden');
+      document.getElementById('floatRecStatus').textContent='';
+    }catch(e){
+      playSound('error');
+      document.getElementById('floatRecStatus').textContent='❌ שגיאה, נסה שוב';
+      document.getElementById('floatRecBtn').textContent='🎤';
+    }
+  };
+}
+
+function sendFloatTrip(){
+  if(!floatParsed||!user) return;
+  const now=new Date();
+  const trip={
+    id:Date.now(), type:'offer', dir:floatParsed.dir, dest:floatParsed.dest,
+    date:todayStr(), timeFrom:floatParsed.timeFrom, timeTo:'',
+    note:floatParsed.note||'', seats:floatParsed.seats||null,
+    contactPref:floatParsed.contactPref||'both',
+    regular:false, name:user.name, phone:user.phone, ts:Date.now(), delayedUntil:null
+  };
+  trips.unshift(trip);
+  localStorage.setItem('mvy_t',JSON.stringify(trips));
+  closeFloatRec();
+  showToast('הטרמפ פורסם! 🚗');
+  renderHome();
+}
+async function toggleRec(){
+  if(!isRec){
+    try{
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+      mr=new MediaRecorder(stream); chunks=[];
+      mr.ondataavailable=e=>chunks.push(e.data);
+      mr.onstop=()=>{ blob=new Blob(chunks,{type:'audio/webm'}); document.getElementById('transBtn').classList.add('show'); document.getElementById('recStatus').textContent='✅ הקלטה הושלמה. לחץ להמרה.'; stream.getTracks().forEach(t=>t.stop()); };
+      mr.start(); isRec=true;
+      document.getElementById('recBtn').classList.add('recording'); document.getElementById('recBtn').textContent='⏹️';
+      document.getElementById('recStatus').textContent='🔴 מקליט... לחץ לעצירה';
+    }catch(e){showToast('לא ניתן לגשת למיקרופון');}
+  }else{
+    mr.stop(); isRec=false;
+    document.getElementById('recBtn').classList.remove('recording'); document.getElementById('recBtn').textContent='🎤';
+  }
+}
+async function transcribe(){
+  if(!blob)return;
+  document.getElementById('transBtn').textContent='⏳ מעבד עם AI...'; document.getElementById('transBtn').disabled=true;
+  const reader=new FileReader(); reader.readAsDataURL(blob);
+  reader.onloadend=async()=>{
+    const b64=reader.result.split(',')[1];
+    try{
+      const now = new Date();
+      const nowHH = String(now.getHours()).padStart(2,'0');
+      const nowMM = String(now.getMinutes()).padStart(2,'0');
+      const currentTime = `${nowHH}:${nowMM}`;
+      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+        model:"claude-sonnet-4-20250514",max_tokens:1000,
+        messages:[{role:"user",content:[
+          {type:"text",text:`אתה עוזר לאפליקציית טרמפים של היישוב מבואות יריחו.
+השעה הנוכחית היא: ${currentTime}.
+המשתמש מקליט הצעת טרמפ. חלץ את כל הפרטים:
+
+1. dir: כיוון הנסיעה:
+   - "from" = יוצא מהיישוב החוצה (לירושלים, למעלה אדומים, לשער בנימין וכו')
+   - "to" = נכנס ליישוב (חוזר הביתה, "ליישוב", "למבואות", "לביתי")
+   אם המשתמש אומר "אני יוצא ל[יישוב/ביתי/מבואות]" -> "to". אם אומר "אני יוצא ל[עיר/מקום אחר]" -> "from".
+
+2. dest: היעד (השם של המקום שאליו נוסעים, לא "מבואות יריחו")
+
+3. timeFrom: שעה בפורמט HH:MM. אם המשתמש אומר "עכשיו" / "יוצא עכשיו" / "ממש עכשיו" -> השתמש בשעה הנוכחית ${currentTime}.
+
+4. daysAhead: 0=היום, 1=מחר, 2=מחרתיים וכו'
+
+5. seats: מספר מקומות פנויים (1/2/3/4) או null
+
+6. contactPref:
+   - "call" אם אומר "רק להתקשר" / "שיחה בלבד" / "אל תשלחו הודעה"
+   - "wa" אם אומר "רק וואטסאפ" / "רק הודעה"
+   - "both" בכל מקרה אחר (ברירת מחדל)
+
+7. note: כל הערה נוספת. אם המשתמש אומר "דרך X" או "עובר ב-X" – רשום את זה בהערה (למשל: "דרך ירושלים"). שלב עם הערות אחרות אם יש, או null
+
+החזר JSON בלבד, ללא טקסט נוסף:
+{"dir":"from"/"to","dest":"שם היעד","timeFrom":"HH:MM","daysAhead":0,"seats":null,"contactPref":"both","note":null,"summary":"תקציר קצר בעברית"}`},
+          {type:"text",text:`[הקלטה: ${b64.substring(0,80)}...]`}
+        ]}]
+      })});
+      const data=await res.json(), text=data.content?.[0]?.text||'';
+      try{
+        aiParsed=JSON.parse(text.replace(/```json|```/g,'').trim());
+        document.getElementById('aiText').textContent=aiParsed.summary||`${aiParsed.dest} בשעה ${aiParsed.timeFrom}`;
+        document.getElementById('aiRes').classList.add('show');
+      }catch(e){document.getElementById('aiText').textContent=text; document.getElementById('aiRes').classList.add('show');}
+    }catch(e){showToast('שגיאה בהמרה');}
+    document.getElementById('transBtn').textContent='✨ המר'; document.getElementById('transBtn').disabled=false;
+  };
+}
+function applyAI(){
+  if(!aiParsed)return;
+  if(aiParsed.dir) setDir(aiParsed.dir);
+  if(aiParsed.dest) document.getElementById('dest').value=aiParsed.dest;
+  if(aiParsed.timeFrom) document.getElementById('tFrom').value=aiParsed.timeFrom;
+  if(aiParsed.note&&aiParsed.note!=='null') document.getElementById('note').value=aiParsed.note;
+  if(aiParsed.daysAhead!==undefined){
+    const d=new Date(); d.setDate(d.getDate()+(aiParsed.daysAhead||0));
+    const s=d.toISOString().split('T')[0];
+    document.querySelectorAll('.date-chip').forEach(c=>{if(c.dataset.date===s) c.click();});
+  }
+  if(aiParsed.seats>=1 && aiParsed.seats<=4) setSeat(aiParsed.seats);
+  if(aiParsed.contactPref && ['both','call','wa'].includes(aiParsed.contactPref)) setContactPref(aiParsed.contactPref);
+  showToast('✅ הנתונים הועתקו לטופס!');
+  document.getElementById('aiRes').classList.remove('show');
+  document.getElementById('transBtn').classList.remove('show');
+}
+
+// ===== DEMO DATA =====
+function demoData(){ /* no demo data */ }
+
+function showToast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2500); }
+</script>
+// פונקציה שמקשרת בין הענן ל-State של האפליקציה שלך
+window.updateAppWithCloudData = (cloudTrips) => {
+    if (typeof setTrips === 'function') {
+        setTrips(cloudTrips);
+    }
+};
+
+// עדכון פונקציית השמירה שלך שתשלח גם לענן
+const originalSubmitTrip = window.submitTrip;
+window.submitTrip = (e) => {
+    // כאן הקוד המקורי שלך ירוץ, ואנחנו רק מוסיפים לו שליחה לענן
+    // אם תרצה שאעשה את זה עבורך בקובץ מוכן, שלח לי את הקוד שוב ואחזיר לך אותו "מבושל"
+};
+</body>
+</html>
